@@ -118,7 +118,7 @@ curl http://localhost:4566/_localstack/health
 ### Result
 LocalStack was running successfully and ready to receive AWS-compatible requests.
 
-![LocalStack](LocalStack.png)
+![LocalStack](Evidence/LocalStack.png)
 
 ## Step 6: Create and Verify Kubernetes Cluster
 A local Kubernetes cluster was created with kind and then verified to ensure that the control plane was operational.
