@@ -44,7 +44,7 @@ sudo systemctl status docker
 ### Result
 Docker was successfully installed and the daemon was accessible for subsequent lab steps.
 
-![Docker](docker.png)
+![Docker](Evidence/docker.png)
 
 ## Step 2: Install and Verify AWS CLI v2
 AWS CLI v2 was installed to enable command-line interaction with AWS services and to support configuration for LocalStack.
@@ -61,7 +61,7 @@ aws --version
 ### Result
 AWS CLI v2 was successfully installed and ready to use for local service configuration.
 
-![AWS CLI](aws-cli.png)
+![AWS CLI](Evidence/aws-cli.png)
 
 ## Step 3: Install and Verify kind and kubectl
 kind and kubectl were installed to support the creation and management of a local Kubernetes cluster.
@@ -80,8 +80,8 @@ kubectl version --client
 ### Result
 Both tools were installed correctly and available for cluster creation.
 
-![kind](kind.png)
-![kubectl](kubectl.png)
+![kind](Evidence/kind.png)
+![kubectl](Evidence/kubectl.png)
 
 ## Step 4: Install and Verify Helper Tools (OpenSSL and oathtool)
 Helper utilities were installed to support cryptographic operations and one-time password generation where needed during the lab workflow.
@@ -100,8 +100,8 @@ oathtool --version
 ### Result
 The required helper tools were successfully installed and verified.
 
-![OpenSSL](OpenSSL.png)
-![oathtool](oathtool.png)
+![OpenSSL](Evidence/OpenSSL.png)
+![oathtool](Evidence/oathtool.png)
 
 ## Step 5: Start and Verify LocalStack
 LocalStack was started locally to emulate AWS services such as S3, Lambda, and IAM for development and testing purposes.
@@ -135,7 +135,7 @@ sudo kubectl get nodes
 ### Result
 The local Kubernetes cluster was successfully created and accessible for later tasks.
 
-![cluster](cluster.png)
+![cluster](Evidence/cluster.png)
 
 ## Step 7: Configure AWS CLI for LocalStack
 The AWS CLI was configured to target the LocalStack endpoint so that commands could be tested against a local AWS-compatible environment.
@@ -159,7 +159,7 @@ aws $EP sts get-caller-identity
 ### Result
 The AWS CLI was successfully configured to communicate with the LocalStack endpoint. The verification command returned a valid response, confirming that the local AWS-compatible environment was working correctly.
 
-![One Time AWS CLI](one-time-aws-cli.png)
+![One Time AWS CLI](Evidence/one-time-aws-cli.png)
 
 ## Conclusion
 
