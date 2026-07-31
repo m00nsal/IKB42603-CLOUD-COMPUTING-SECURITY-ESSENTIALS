@@ -11,24 +11,29 @@ This lab explored identity and access management across two local cloud-computin
 
 ## Evidence Folder
 
-All screenshots referred to in this report are stored in the `Evidence` folder.
+All screenshots used as evidence in this report are stored in the `Evidence` folder.
 
 | Evidence File | Purpose |
 |---|---|
-| `2-Least-privilege.png` | Creation of the administrator group, policy attachment and related commands |
-| `2.1-Group-Policy.png` | Creation of the `Admins` group |
-| `2.2-Personal-Admin.png` | Creation of the personal administrator account |
-| `2.4-Verify-Membership.png` | Verification of membership in the `Admins` group |
-| `3.1-create-user.png` | Creation of the analyst account |
-| `3.3-ListPermission-User.png` | Verification of the analyst's read-only policy |
-| `4.1-access-key.png` | Creation of an analyst access key |
-| `4.2-List-access-Keys.png` | Listing of the analyst's access keys |
-| `4-Credential&AccessKeys.png` | Deactivation of an old access key |
-| `SessionB-Setup.png` | Setup of the kind Kubernetes cluster |
-| `5-Env-Namespace.png` | Creation of the `dev` and `prod` namespaces |
-| `6-role-bind.png` | Creation of the service account, Role and RoleBinding |
-| `7-test.png` | Kubernetes RBAC authorization tests |
-| `Verification-RBAC.png` | YAML verification of the RoleBinding |
+| `1._LocalStack_Identity_Verification.png` | Verification of the LocalStack IAM connection using the AWS CLI |
+| `2.1_create_admins_group.png` | Creation of the `Admins` IAM group |
+| `2.1_attach_admin_policy.png` | Attachment of the `AdministratorAccess` policy to the `Admins` group |
+| `2.2_create_cloudadmin_user.png` | Creation of the `CloudAdmin_Salihah` administrator account |
+| `2.3_add_user_to_admins_group.png` | Adding the administrator account to the `Admins` group |
+| `2.4_verify_admin_group_membership.png` | Verification of the `Admins` group membership |
+| `3.1_create_analyst_user.png` | Creation of the `Analyst_Suraya` account |
+| `3.2_attach_s3_readonly_policy.png` | Attachment of the `AmazonS3ReadOnlyAccess` policy |
+| `3.3_verify_attached_user_policy.png` | Verification of the attached user policy |
+| `4.1_create_access_key.png` | Creation of an access key for the analyst account |
+| `4.2_list_access_keys.png` | Listing of the analyst account access keys |
+| `4.3_deactivate_access_key.png` | Deactivation of the analyst account access key |
+| `5.0_kubernetes_cluster_setup.png` | Creation and verification of the Kubernetes cluster |
+| `5.1_create_namespaces.png` | Creation of the `dev` and `prod` namespaces |
+| `6.1_create_service_account.png` | Creation of the Kubernetes service account |
+| `6.2_create_role.png` | Creation of the Kubernetes Role |
+| `6.3_create_rolebinding.png` | Creation of the Kubernetes RoleBinding |
+| `7.1_verify_rbac_permissions.png` | Verification of Kubernetes RBAC permissions |
+| `verify_rolebinding_configuration.png` | Verification of the RoleBinding configuration in YAML format |
 
 ## Task 1: Map the Cloud Identity Landscape
 
@@ -48,9 +53,10 @@ Before configuring access, it is important to distinguish the main identity conc
 
 Before performing any IAM configuration, the AWS CLI was configured to communicate with the LocalStack endpoint. The `sts get-caller-identity` command was executed to verify that the AWS CLI was successfully connected to the local cloud environment. The output displays the default LocalStack account ID (`000000000000`), confirming that all subsequent IAM operations will be performed locally rather than on the real AWS cloud.
 
-![LocalStack IAM Verification](Evidence/1._LocalStack_Identity_Verification.png)
+![LocalStack IAM Verification](Evidence/1.0_LocalStack_Identity_Verification.png)
 
-**Figure 1.:** Verification of the AWS CLI connection to the LocalStack IAM environment using the `sts get-caller-identity` command.
+**Figure 1.0:** Verification of the AWS CLI connection to the LocalStack IAM environment using the `sts get-caller-identity` command.
+
 ## Task 2: Create a Least-Privilege Admin
 
 Rather than using the root identity for routine administration, a named administrator was created. Administrative access was assigned through a group so that permissions could be centrally managed.
@@ -154,7 +160,7 @@ The attached policies for the `Analyst_Suraya` user were verified using the AWS 
 aws $EP iam list-attached-user-policies --user-name Analyst_Suraya
 ```
 
-![Verify Attached User Policy](Evidence/3.3-verify-attached-user-policy.png)
+![Verify Attached User Policy](Evidence/3.3_verify_attached_user_policy.png)
 
 **Figure 3.3:** Verification that the `AmazonS3ReadOnlyAccess` managed policy is attached to the `Analyst_Suraya` IAM user.
 
@@ -176,7 +182,7 @@ aws $EP iam create-access-key --user-name Analyst_Suraya
 
 The command successfully generated a new access key for the analyst account, confirming that the user is able to authenticate programmatically when the assigned permissions are required.
 
-![Create Access Key](Evidence/4.1-create-access-key.png)
+![Create Access Key](Evidence/4.1_create_access_key.png)
 
 **Figure 4.1:** Successful creation of an access key for the `Analyst_Suraya` IAM user.
 
@@ -207,161 +213,129 @@ aws $EP iam list-access-keys --user-name Analyst_Suraya
 
 **Figure 4.3:** Verification that the access key for the `Analyst_Suraya` IAM user has been successfully changed to the `Inactive` state.
 
-## Session B: Kubernetes RBAC
+## Session B: Enforced Access Control with Kubernetes RBAC
 
-The second part of the lab applied access control to Kubernetes. Unlike IAM policy assignment in LocalStack, these tests produced authorization decisions for a service account within separated namespaces.
+### Setup: Create a Local Kubernetes Cluster
 
-### Setup: Create Local Kubernetes Cluster
-
-Commands:
+A new Kubernetes cluster named `ccse_lab1` was created using **kind (Kubernetes in Docker)** to provide an isolated environment for testing Kubernetes Role-Based Access Control (RBAC). After the cluster was successfully created, the cluster status was verified using `kubectl cluster-info` and `kubectl get nodes`. The output confirms that the Kubernetes control plane is running correctly and that the control-plane node is in the **Ready** state, indicating that the cluster is ready for the RBAC exercises.
 
 ```bash
 kind create cluster --name ccse-lab1
+
 kubectl cluster-info --context kind-ccse-lab1
+
 kubectl get nodes
 ```
 
-The kind cluster named `ccse-lab1` was created, and kubectl was configured to communicate with the `kind-ccse-lab1` context.
+![Kubernetes Cluster Setup](Evidence/5.0_kubernetes_cluster_setup.png)
 
-![Kubernetes cluster setup](Evidence/SessionB-Setup.png)
+**Figure 5.0:** Creation and verification of the local Kubernetes cluster (`ccse-lab1`) using kind and kubectl.
 
 ## Task 5: Separate Environments with Namespaces
 
-Namespaces provide logical separation for resources within one Kubernetes cluster. Separate `dev` and `prod` namespaces were created to represent development and production environments.
-
-Commands:
+Namespaces were created to logically separate resources within the Kubernetes cluster. In this task, two namespaces named `dev` and `prod` were created to represent the development and production environments. After creating the namespaces, the cluster was verified to ensure that both environments were successfully added and ready for the RBAC configuration in the following tasks.
 
 ```bash
 kubectl create namespace dev
+
 kubectl create namespace prod
+
 kubectl get namespaces
 ```
 
-Both namespaces were created and appeared with an `Active` status.
+![Create Kubernetes Namespaces](Evidence/5.1_create_namespaces.png)
 
-![Development and production namespaces](Evidence/5-Env-Namespace.png)
+**Figure 5.1:** Creation and verification of the `dev` and `prod` namespaces in the Kubernetes cluster.
 
 ## Task 6: Define a Role and Bind It
 
 Kubernetes RBAC separates the description of permissions from the assignment of those permissions. A service account was created first, followed by a namespaced Role and a RoleBinding.
 
-### Step 6.1: Create Service Account
+### Step 6.1: Create a Service Account
 
-Command:
+A Kubernetes service account named `dev-user` was created in the `dev` namespace to represent a developer identity. This service account will be used in the following RBAC configuration to demonstrate how permissions can be assigned to non-human identities within a specific namespace.
 
 ```bash
 kubectl create serviceaccount dev-user -n dev
 ```
 
-This created the `dev-user` service account inside the `dev` namespace.
+The command completed successfully, confirming that the `dev-user` service account was created and is ready to be associated with a role and role binding.
 
-### Step 6.2: Create Pod Reader Role
+![Create Service Account](Evidence/6.1_create_service_account.png)
 
-Command:
+**Figure 6.1:** Successful creation of the `dev-user` service account in the `dev` namespace.
+
+### Step 6.2: Create a Role
+
+A Kubernetes role named `pod-reader` was created in the `dev` namespace to grant read-only access to pod resources. The role allows users or service accounts to perform the `get`, `list`, and `watch` operations without permitting any modifications. This configuration follows the principle of least privilege by granting only the permissions required to perform read-only tasks.
 
 ```bash
 kubectl create role pod-reader -n dev \
-    --verb=get,list,watch --resource=pods
+    --verb=get,list,watch \
+    --resource=pods
 ```
 
-The namespaced `pod-reader` Role permits only the `get`, `list` and `watch` verbs for pod resources in `dev`.
+The successful execution of the command confirms that the `pod-reader` role has been created and is ready to be assigned to a service account through a RoleBinding.
 
-### Step 6.3: Create RoleBinding
+![Create Role](Evidence/6.2_create_role.png)
 
-Command:
+**Figure 6.2:** Successful creation of the `pod-reader` role in the `dev` namespace.
+
+### Step 6.3: Create a RoleBinding
+
+A RoleBinding named `dev-user-binding` was created in the `dev` namespace to associate the `pod-reader` role with the `dev-user` service account. This binding grants the service account the permissions defined in the role, allowing it to perform only the authorized read-only operations on pods within the `dev` namespace.
 
 ```bash
 kubectl create rolebinding dev-user-binding -n dev \
-    --role=pod-reader --serviceaccount=dev:dev-user
+    --role=pod-reader \
+    --serviceaccount=dev:dev-user
 ```
 
-The `dev-user-binding` RoleBinding assigned the permissions in `pod-reader` to the `dev-user` service account.
+The successful execution of the command confirms that the RoleBinding has been created, linking the `dev-user` service account to the `pod-reader` role and completing the RBAC configuration for the development environment.
 
-![Service account, Role and RoleBinding creation](Evidence/6-role-bind.png)
+![Create RoleBinding](Evidence/6.3_create_rolebinding.png)
 
-## Task 7: Test Access Control
+**Figure 6.3:** Successful creation of the `dev-user-binding` RoleBinding in the `dev` namespace.
 
-The fully qualified service-account identity was saved in a shell variable for the authorization tests:
+## Task 7: Test the RBAC Policy
+
+### Step 7.1: Verify Role Permissions
+
+The permissions assigned to the `dev-user` service account were verified using the `kubectl auth can-i` command. Three authorization checks were performed to validate the RBAC configuration. The results show that the service account can list pods within the `dev` namespace (`yes`), but cannot delete pods in the same namespace (`no`) or access pods in the `prod` namespace (`no`). These results confirm that the RBAC policy correctly enforces the principle of least privilege by granting only the required permissions within the intended namespace.
 
 ```bash
 SA=system:serviceaccount:dev:dev-user
-```
 
-This value represents the `dev-user` service account located in the `dev` namespace.
-
-### Test 1: List Pods in Dev
-
-Command:
-
-```bash
 kubectl auth can-i list pods -n dev --as=$SA
-```
 
-Result:
-
-```text
-yes
-```
-
-The request was allowed because the `pod-reader` Role explicitly includes the `list` verb for pods in `dev`.
-
-### Test 2: Delete Pods in Dev
-
-Command:
-
-```bash
 kubectl auth can-i delete pods -n dev --as=$SA
-```
 
-Result:
-
-```text
-no
-```
-
-The request was denied because `delete` was not included among the verbs granted by the Role.
-
-### Test 3: List Pods in Prod
-
-Command:
-
-```bash
 kubectl auth can-i list pods -n prod --as=$SA
 ```
 
-Result:
+![Verify RBAC Permissions](Evidence/7.1_verify_rbac_permissions.png)
 
-```text
-no
-```
-
-Although the service account could list pods in `dev`, the same action was rejected in `prod`. The Role and RoleBinding are limited to the namespace in which they were created and therefore provide no authorization in `prod`.
-
-![RBAC authorization test results](Evidence/7-test.png)
+**Figure 7.1:** Verification of the RBAC permissions assigned to the `dev-user` service account using the `kubectl auth can-i` command.
 
 ### Authentication and Authorization
 
-Authentication establishes the identity making a request, while authorization decides whether that authenticated identity may perform the requested action. Kubernetes recognized `system:serviceaccount:dev:dev-user` as a valid service-account identity. RBAC then allowed pod listing in `dev`, but rejected pod deletion in `dev` and pod listing in `prod` because those capabilities were outside the assigned permissions.
+Authentication verifies the identity of the user or service account making a request, while authorization determines whether that identity is allowed to perform the requested action. In this lab, Kubernetes recognized `system:serviceaccount:dev:dev-user` as a valid service account. RBAC then allowed the service account to list pods in the `dev` namespace but denied permission to delete pods or access resources in the `prod` namespace.
 
 ## RBAC Verification Command
 
-The RoleBinding configuration was inspected directly with the required verification command:
+The RoleBinding configuration was reviewed in YAML format to verify that the RBAC policy had been applied successfully. This verification ensures that the correct role is linked to the intended service account within the appropriate namespace.
 
 ```bash
 kubectl get rolebinding dev-user-binding -n dev -o yaml
 ```
 
-Output:
+**Output:**
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  creationTimestamp: "2026-07-29T05:48:38Z"
-  name: dev-user-binding
-  namespace: dev
-  resourceVersion: "701"
-  uid: 91124053-fdc5-418a-a916-ec078374971c
+  ...
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -372,42 +346,46 @@ subjects:
   namespace: dev
 ```
 
-![RoleBinding YAML verification](Evidence/Verification-RBAC.png)
+![RoleBinding YAML Verification](Evidence/verify_rolebinding_configuration.png)
 
-The YAML shows that `dev-user-binding` refers to the `pod-reader` Role and names `dev-user` in the `dev` namespace as its subject. This confirms the intended RBAC relationship.
+The YAML output confirms that the `dev-user-binding` resource references the `pod-reader` role and assigns it to the `dev-user` service account in the `dev` namespace. This verification demonstrates that the RBAC relationship has been configured correctly and that the intended permissions are associated with the appropriate identity.
 
 ## Short-Answer Questions
 
 ### Q1. Why is attaching policies to groups better than attaching them directly to users?
 
-Group-based policy assignment makes permissions easier to maintain, review and audit. When several people need the same level of access, an administrator can manage one group policy instead of repeating the configuration for every user. Adding or removing a person from the group then changes access consistently and lowers the chance of configuration errors.
+Attaching policies to groups makes permission management easier because the permissions only need to be configured once. When a new user joins the same team, they can simply be added to the group instead of assigning policies individually. This also helps maintain consistent access control and reduces configuration errors.
 
 ### Q2. What is the difference between an IAM User and an IAM Role?
 
-An IAM User is a persistent identity generally associated with a person or application and may use long-term credentials such as an access key. An IAM Role is assumed when required and normally issues temporary credentials. Roles are especially suitable for services and short-lived access because permanent credentials do not need to be embedded or continuously stored.
+An IAM User represents a specific person or account with long-term credentials. An IAM Role does not have permanent credentials and is assumed temporarily to perform specific tasks. Roles are commonly used to provide temporary access to users, applications, or services.
 
 ### Q3. Explain least privilege using the Analyst account, and how it reduces blast radius if compromised.
 
-`Analyst_Suraya` received only `AmazonS3ReadOnlyAccess`, which was appropriate for an analyst who needs to inspect rather than change information. If the credentials were stolen, the attacker would be constrained by the same read-only policy and would not obtain IAM administration or S3 modification privileges. The limited permission set therefore reduces the number and severity of actions possible through the compromised account.
+The `Analyst_Suraya` account was assigned only the `AmazonS3ReadOnlyAccess` policy. This means the user can view S3 resources but cannot modify or delete them. If the account is compromised, the attacker can only perform limited actions, reducing the overall impact and protecting other AWS resources.
 
 ### Q4. In Kubernetes, what is the difference between a Role and a RoleBinding?
 
-A Role contains permission rules, including the resources and verbs allowed within a namespace. A RoleBinding assigns those rules to a user, group or service account. In this exercise, `pod-reader` described the permitted pod-reading actions, while `dev-user-binding` granted them to `dev-user`.
+A Role defines what actions are allowed on specific resources within a namespace. A RoleBinding links that Role to a user or service account, allowing them to use the permissions defined in the Role.
 
 ### Q5. Why did the developer service account fail to access prod, and which security principle does that demonstrate?
 
-The service account failed because its Role and RoleBinding existed only in `dev`; no binding granted it permission in `prod`. This result demonstrates least privilege as well as environment separation, since the identity can operate only within its approved scope.
+The `dev-user` service account failed to access the `prod` namespace because its Role and RoleBinding were created only in the `dev` namespace. It did not have any permissions in `prod`. This demonstrates the principle of least privilege, where access is limited to only the resources required for a specific task.
 
 ## Security Best-Practices Checklist
 
-- [x] A dedicated administrator, `CloudAdmin_Salihah`, was used instead of relying on the root identity for routine work.
-- [x] Administrator permissions were managed through the `Admins` group rather than attached directly to the personal administrator.
-- [x] The analyst identity, `Analyst_Suraya`, was restricted with `AmazonS3ReadOnlyAccess`.
-- [x] Access-key creation, review and deactivation were performed to demonstrate credential rotation.
-- [x] Kubernetes RBAC denied pod deletion in `dev` and pod listing in `prod` because neither action was authorized.
+- ☑ **Root user is not used for daily tasks** – A dedicated administrator account (`CloudAdmin_Salihah`) was created to perform administrative tasks instead of using the root account.
+
+- ☑ **Permissions are granted via groups/roles, not directly to individual users** – Administrative permissions were assigned through the `Admins` group in IAM, while Kubernetes permissions were managed using Roles and RoleBindings.
+
+- ☑ **At least one least-privilege (read-only) identity was created and tested** – The `Analyst_Suraya` account was assigned the `AmazonS3ReadOnlyAccess` policy, providing only the minimum permissions required for its role.
+
+- ☑ **Access keys were listed and a rotation (deactivate) was demonstrated** – The access key for `Analyst_Suraya` was created, verified, and later deactivated to demonstrate secure credential management.
+
+- ☑ **Kubernetes RBAC blocks an unauthorised action (delete / cross-namespace)** – RBAC testing confirmed that the `dev-user` service account could list pods in the `dev` namespace but was denied permission to delete pods or access resources in the `prod` namespace.
 
 ## Conclusion
 
-This lab showed that secure access depends on granting identities only the permissions required for their responsibilities. In LocalStack IAM, a named administrator inherited centrally managed access from the `Admins` group, while `Analyst_Suraya` was restricted to read-only S3 operations. Creating and deactivating an access key also highlighted the importance of protecting and rotating long-term credentials.
+This lab showed that secure access is achieved by giving users only the permissions they need. In LocalStack IAM, the administrator received permissions through the `Admins` group, while `Analyst_Suraya` was only allowed to read Amazon S3 resources. Creating and deactivating an access key also showed the importance of managing user credentials securely.
 
-Kubernetes RBAC reinforced the same principle through a different authorization model. The `dev-user` service account could read pods in its assigned namespace but could neither delete them nor use the same permission in `prod`. Together, the two exercises demonstrated how group-based IAM policies, scoped identities, namespace boundaries and explicit role bindings help limit unauthorized activity and reduce the impact of compromised credentials.
+In Kubernetes, RBAC applied the same security concept. The `dev-user` service account could only read pods in the `dev` namespace and was not allowed to delete pods or access the `prod` namespace. Overall, this lab demonstrated how IAM groups, least-privilege access, and Kubernetes RBAC help protect cloud resources by limiting unnecessary permissions.
