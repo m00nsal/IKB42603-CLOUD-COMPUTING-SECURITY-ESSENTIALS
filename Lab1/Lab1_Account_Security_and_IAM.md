@@ -15,7 +15,7 @@ All screenshots used as evidence in this report are stored in the `Evidence` fol
 
 | Evidence File | Purpose |
 |---|---|
-| `1._LocalStack_Identity_Verification.png` | Verification of the LocalStack IAM connection using the AWS CLI |
+| `1.0_LocalStack_Identity_Verification.png` | Verification of the LocalStack IAM connection using the AWS CLI |
 | `2.1_create_admins_group.png` | Creation of the `Admins` IAM group |
 | `2.1_attach_admin_policy.png` | Attachment of the `AdministratorAccess` policy to the `Admins` group |
 | `2.2_create_cloudadmin_user.png` | Creation of the `CloudAdmin_Salihah` administrator account |
@@ -32,7 +32,7 @@ All screenshots used as evidence in this report are stored in the `Evidence` fol
 | `6.1_create_service_account.png` | Creation of the Kubernetes service account |
 | `6.2_create_role.png` | Creation of the Kubernetes Role |
 | `6.3_create_rolebinding.png` | Creation of the Kubernetes RoleBinding |
-| `7.1_verify_rbac_permissions.png` | Verification of Kubernetes RBAC permissions |
+| `7.0_verify_rbac_permissions.png` | Verification of Kubernetes RBAC permissions |
 | `verify_rolebinding_configuration.png` | Verification of the RoleBinding configuration in YAML format |
 
 ## Task 1: Map the Cloud Identity Landscape
@@ -313,7 +313,7 @@ kubectl auth can-i delete pods -n dev --as=$SA
 kubectl auth can-i list pods -n prod --as=$SA
 ```
 
-![Verify RBAC Permissions](Evidence/7.1_verify_rbac_permissions.png)
+![Verify RBAC Permissions](Evidence/7.0_verify_rbac_permissions.png)
 
 **Figure 7.1:** Verification of the RBAC permissions assigned to the `dev-user` service account using the `kubectl auth can-i` command.
 
