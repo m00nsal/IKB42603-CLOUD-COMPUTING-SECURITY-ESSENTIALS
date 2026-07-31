@@ -1,9 +1,14 @@
 # Lab 1: Cloud Account Security, Identity and Access Management
 
-**Course:** IKB42603 Cloud Computing Security Essentials  
-**Topic:** Identity governance, least privilege, LocalStack IAM and Kubernetes RBAC  
-**Environment:** Kali Linux, Docker, LocalStack, AWS CLI, Kubernetes (kind) and kubectl  
-**Name:** SITI NUR SALIHAH BINTI AHMAD BALKIS
+## Course Information
+- Course Name: IKB42603 Cloud Computing Security Essentials
+- Instructor: MADAM ADANI
+- Student Name: SITI NUR SALIHAH BINTI AHMAD 
+- Lab: Lab 1 – Identity governance, least privilege, LocalStack IAM and Kubernetes RBAC
+- Environment: Kali Linux, Docker, LocalStack, AWS CLI, Kubernetes (kind) and kubectl
+BALKIS
+- Date: 31 July 2026
+
 
 ## Lab Summary and Objectives
 
