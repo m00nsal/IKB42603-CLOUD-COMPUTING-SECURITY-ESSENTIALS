@@ -394,3 +394,23 @@ The `dev-user` service account failed to access the `prod` namespace because its
 This lab showed that secure access is achieved by giving users only the permissions they need. In LocalStack IAM, the administrator received permissions through the `Admins` group, while `Analyst_Suraya` was only allowed to read Amazon S3 resources. Creating and deactivating an access key also showed the importance of managing user credentials securely.
 
 In Kubernetes, RBAC applied the same security concept. The `dev-user` service account could only read pods in the `dev` namespace and was not allowed to delete pods or access the `prod` namespace. Overall, this lab demonstrated how IAM groups, least-privilege access, and Kubernetes RBAC help protect cloud resources by limiting unnecessary permissions.
+
+## Challenges Encountered
+
+- Encountered Docker permission issues when accessing the Docker daemon in Kali Linux.
+- Resolved the issue by configuring Docker permissions and verifying that the Docker service was running correctly.
+- Faced minor Git synchronization issues while updating the GitHub repository, which were resolved by committing and pushing the latest changes.
+
+## Lessons Learned
+
+- Learned how IAM users, groups, and policies are used to implement secure access control.
+- Understood the importance of the principle of least privilege in reducing security risks.
+- Learned how to manage access keys securely by creating, verifying, and deactivating them.
+- Gained practical experience with Kubernetes RBAC, including Roles, RoleBindings, and namespace-based access control.
+
+## References
+
+- Amazon Web Services. (2026). *AWS Identity and Access Management (IAM) User Guide*. https://docs.aws.amazon.com/IAM/latest/UserGuide/
+- LocalStack. (2026). *LocalStack Documentation*. https://docs.localstack.cloud/
+- Docker Inc. (2026). *Docker Documentation*. https://docs.docker.com/
+- Amazon Web Services. (2026). *IAM Best Practices*. https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.htmls
