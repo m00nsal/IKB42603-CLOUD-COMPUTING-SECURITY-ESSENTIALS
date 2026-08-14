@@ -52,7 +52,7 @@ In this lab, two Kubernetes tenants were created using separate namespaces. Ngin
 A kind cluster named `ccse-lab2` was created with the default Container Network Interface (CNI) disabled. Calico was then installed to manage cluster networking and enforce NetworkPolicy rules.
 
 ```bash
-cat <<EOF | kind create cluster --name ccse-lab2 --config=-
+cat <<EOF > ccse-lab2-config.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
