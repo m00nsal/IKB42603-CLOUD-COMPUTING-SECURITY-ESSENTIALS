@@ -5,8 +5,8 @@
 - Instructor: MADAM ADANI
 - Student Name: SITI NUR SALIHAH BINTI AHMAD BALKIS
 - Topic: Compute, network and storage isolation using Docker and Kubernetes
-- Environment: kind Kubernetes cluster ccse-lab2, Calico CNI, Docker volume ccse-vol- L
-- Date: 12 August 2026
+- Environment: kind Kubernetes cluster `ccse-lab2`, Calico CNI and Docker volume `ccse-vol`
+- Date: 14 August 2026
 
 ## Lab Objectives
 - To create and manage separate tenants using Kubernetes namespaces.
@@ -45,7 +45,9 @@ After completing this lab, I was able to:
 ## Lab Summary
 In this lab, two Kubernetes tenants were created using separate namespaces. Nginx was deployed in both tenants, and the initial test showed that they could communicate by default. A ResourceQuota was used to control resource usage, while a NetworkPolicy successfully blocked traffic between tenants. RBAC protected secrets across namespaces, and secure deletion was demonstrated by overwriting sensitive data before removing it. Overall, the lab demonstrated tenant isolation and data security in Kubernetes.
 
-## Setup — Cluster with Policy Enforcement
+## Step-by-Step Implementation
+
+### Setup — Cluster with Policy Enforcement
 
 A kind cluster named `ccse-lab2` was created with the default Container Network Interface (CNI) disabled. Calico was then installed to manage cluster networking and enforce NetworkPolicy rules.
 
@@ -80,7 +82,7 @@ All important components, including Calico, CoreDNS and kube-proxy, successfully
 
 ![Successful Calico rollout](Evidence/0.2-Calico-Rollout-Success.png)
 
-## Task 1 — Two Tenants on One Cluster
+### Task 1 — Two Tenants on One Cluster
 
 Two Kubernetes namespaces were created to represent separate tenants:
 
@@ -116,7 +118,7 @@ Both Nginx pods reached the `1/1 Running` state. This confirmed that both tenant
 
 ![Tenant namespaces, Nginx deployments and services](Evidence/1-Tenant-Setup-and-Deployment.png)
 
-## Task 2 — Observe the Default-Open Risk
+### Task 2 — Observe the Default-Open Risk
 
 The ClusterIP address of the Tenant B web service was obtained using:
 
@@ -152,7 +154,7 @@ The `HTTP 200` response confirmed that Tenant A could communicate with Tenant B.
 
 ![Successful connection from Tenant A to Tenant B before NetworkPolicy](Evidence/2-Default-Network-Access.png)
 
-## Task 3 — Contain the Noisy Neighbour (Resource Quotas)
+### Task 3 — Contain the Noisy Neighbour (Resource Quotas)
 
 A ResourceQuota was created in `tenant-a` to limit the amount of cluster resources that the tenant could request.
 
@@ -194,7 +196,7 @@ The quota limits Tenant A to a maximum of five pods, one CPU request and 512 MiB
 
 ![ResourceQuota configuration and verification for Tenant A](Evidence/3-ResourceQuota-and-Verification.png)
 
-## Task 4 — Default-Deny Network Isolation
+### Task 4 — Default-Deny Network Isolation
 
 A default-deny ingress NetworkPolicy was applied to `tenant-b`.
 
@@ -261,7 +263,7 @@ The timeout confirmed that Tenant A could no longer connect to the web service i
 
 ![Connection from Tenant A to Tenant B timed out after applying the NetworkPolicy](Evidence/4.1-NetworkPolicy-Timeout.png)
 
-## Task 5 — Storage & Secret Isolation
+### Task 5 — Storage & Secret Isolation
 
 A different Kubernetes Secret was created in each tenant:
 
@@ -331,7 +333,7 @@ The results showed that the ServiceAccount could access Secrets in its own names
 
 ![Secret isolation and RBAC permission results](Evidence/5-Secret-Isolation-and-RBAC.png)
 
-## Task 6 — Data Remanence and Secure Deletion
+### Task 6 — Data Remanence and Secure Deletion
 
 This task demonstrated the difference between normal file deletion and overwriting a file before deletion inside a Docker volume.
 
@@ -392,7 +394,7 @@ Overwriting the file before deletion reduces the possibility of recovering its o
 
 ![Normal deletion and overwrite-before-delete results](Evidence/6-Data-Remanence-and-Secure-Wipe.png)
 
-## Verification Commands
+### Verification Commands
 
 The NetworkPolicy can be verified using:
 
@@ -478,11 +480,11 @@ Data remanence occurs when information remains on a storage device after a file 
 
 ## Security Best-Practices Checklist
 
-- [/] Tenants are separated into distinct namespaces.
-- [/] A default-deny NetworkPolicy blocks cross-tenant traffic (verified before/after).
-- [/] Resource quotas prevent a noisy-neighbour from exhausting shared capacity.
-- [/] Per-tenant secrets are unreadable by other tenants (RBAC enforced).
-- [/] Secure deletion / cryptographic erasure is understood for data remanence.
+- [x] Tenants are separated into distinct namespaces.
+- [x] A default-deny NetworkPolicy blocks cross-tenant traffic (verified before/after).
+- [x] Resource quotas prevent a noisy-neighbour from exhausting shared capacity.
+- [x] Per-tenant secrets are unreadable by other tenants (RBAC enforced).
+- [x] Secure deletion / cryptographic erasure is understood for data remanence.
 
 ## Lessons Learned
 
