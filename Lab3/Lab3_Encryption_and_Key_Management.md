@@ -106,6 +106,7 @@ diff record.txt record.dec.txt && echo 'MATCH: decryption successful'
 The `MATCH: decryption successful` message confirmed that the decrypted content was the same as the original record.
 
 ![AES encryption and decryption](Evidence/1-AES-Encryption-Decryption.png)
+
 **Figure 1:** AES-256 encryption and decryption showing that the decrypted file matched the original file.
 
 #### Result
