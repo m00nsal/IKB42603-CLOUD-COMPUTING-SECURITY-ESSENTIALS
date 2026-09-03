@@ -432,3 +432,162 @@ This indicated that two high-severity vulnerabilities and no critical vulnerabil
 | Non-root user         | Reduces the impact of a container compromise because the service does not have root privileges.             |
 | Read-only filesystem  | Prevents attackers from modifying system files or installing malicious files in the container filesystem.   |
 | Drop all capabilities | Removes unnecessary Linux privileges that could be abused for privilege escalation or system-level actions. |
+
+### Verification Commands
+
+The Kubernetes RoleBinding was verified using:
+
+```bash
+kubectl get rolebinding dev-rb -n app -o yaml
+```
+
+The output showed that the `dev` service account was connected to the `dev-role` in the `app` namespace.
+
+The dropped Linux capabilities of the hardened container were verified using:
+
+```bash
+docker inspect hardened --format '{{json .HostConfig.CapDrop}}'
+```
+
+The command returned:
+
+```text
+["ALL"]
+```
+
+This confirmed that all unnecessary Linux capabilities were removed from the hardened container.
+
+### Verification Evidence
+
+![RBAC RoleBinding Verification](Evidence/RBAC-RoleBinding-Verification.png)
+
+**Figure 7.1: Kubernetes RoleBinding Verification.** The output confirmed that the `dev` service account was assigned to the `dev-role` within the `app` namespace.
+
+![Container Capabilities Verification](Evidence/Container-Capabilities-Verification.png)
+
+**Figure 7.2: Hardened Container Capabilities Verification.** The `["ALL"]` output confirmed that all Linux capabilities were dropped from the hardened container.
+
+## Evidence
+
+All screenshots used as evidence are stored in the `Evidence` folder.
+
+| Screenshot                                | Description                                                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `1-Basic-Authentication.png`              | HTTP Basic Authentication test showing `401` without credentials and `200` with valid credentials            |
+| `2-MFA-TOTP-Validation.png`               | Generation and successful validation of a six-digit TOTP code                                                |
+| `3-Kubernetes-RBAC-Authorization.png`     | Kubernetes cluster, RBAC configuration and authorization results showing `yes`, `no` and `no`                |
+| `4.1-Three-Tier-Network-Setup.png`        | Creation of the frontend and backend networks and deployment of the web, application and database containers |
+| `4.2-Network-Segmentation-Test.png`       | Connectivity test showing `web` to `db` as `BLOCKED` and `app` to `db` as `REACHABLE`                        |
+| `5-Default-Deny-Firewall-Rules.png`       | iptables default `DROP` policy with explicit rules allowing TCP port 443 and loopback traffic                |
+| `6.1-Hardened-Container-Verification.png` | Hardened Nginx container running as a non-root user with a read-only root filesystem                         |
+| `6.2-Trivy-Database-Download.png`         | Download and update of the Trivy vulnerability database                                                      |
+| `6.3-Trivy-Vulnerability-Scan-Result.png` | Trivy result showing two high-severity and zero critical vulnerabilities                                     |
+| `RBAC-RoleBinding-Verification.png`       | Verification that the `dev` service account was assigned to the `dev-role`                                   |
+| `Container-Capabilities-Verification.png` | Verification that all Linux capabilities were dropped from the hardened container                            |
+| `Cleanup-and-Teardown.png` | Removal of the Docker containers, frontend and backend networks, and the `ccse-lab4` Kubernetes cluster |
+
+## Commands Used
+
+| Purpose                                         | Command                                                                                                                                                                                                    |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generate the Basic Authentication password file | `docker run --rm httpd:alpine htpasswd -nbB student 'P@ssw0rd!' > htpasswd.txt`                                                                                                                            |
+| Start the password-protected Nginx service      | `docker run --rm -d --name authsvc -p 8080:80 -v "$(pwd)/default.conf:/etc/nginx/conf.d/default.conf:ro" -v "$(pwd)/htpasswd.txt:/etc/nginx/.htpasswd:ro" -v "$(pwd)/html:/usr/share/nginx/html:ro" nginx` |
+| Test access without credentials                 | `curl -s -o /dev/null -w 'no-creds: %{http_code}\n' http://localhost:8080`                                                                                                                                 |
+| Test access with valid credentials              | `curl -s -u student:'P@ssw0rd!' -w '\nvalid-creds: %{http_code}\n' http://localhost:8080`                                                                                                                  |
+| Generate a Base32 shared secret                 | `SECRET=$(head -c20 /dev/urandom \| base32)`                                                                                                                                                               |
+| Generate a TOTP code                            | `CURRENT_CODE=$(oathtool --totp -b "$SECRET")`                                                                                                                                                             |
+| Validate the TOTP code                          | `[ "$CODE" = "$CURRENT_CODE" ] && echo 'MFA OK' \|\| echo 'MFA FAILED'`                                                                                                                                    |
+| Create the Kubernetes cluster                   | `kind create cluster --name ccse-lab4`                                                                                                                                                                     |
+| Create the application namespace                | `kubectl create namespace app`                                                                                                                                                                             |
+| Create the developer service account            | `kubectl create serviceaccount dev -n app`                                                                                                                                                                 |
+| Create the developer role                       | `kubectl create role dev-role -n app --verb=get,list --resource=pods`                                                                                                                                      |
+| Bind the role to the service account            | `kubectl create rolebinding dev-rb -n app --role=dev-role --serviceaccount=app:dev`                                                                                                                        |
+| Test the service account permissions            | `kubectl auth can-i list pods -n app --as=$SA`                                                                                                                                                             |
+| Create the frontend network                     | `docker network create frontend-net`                                                                                                                                                                       |
+| Create the backend network                      | `docker network create backend-net`                                                                                                                                                                        |
+| Test web-to-database connectivity               | `docker exec web bash -c 'timeout 3 bash -c "</dev/tcp/db/6379" 2>/dev/null && echo REACHABLE \|\| echo BLOCKED'`                                                                                          |
+| Test application-to-database connectivity       | `docker exec app bash -c 'timeout 3 bash -c "</dev/tcp/db/6379" 2>/dev/null && echo REACHABLE \|\| echo BLOCKED'`                                                                                          |
+| Apply the default-deny firewall policy          | `iptables -P INPUT DROP`                                                                                                                                                                                   |
+| Allow HTTPS traffic                             | `iptables -A INPUT -p tcp --dport 443 -j ACCEPT`                                                                                                                                                           |
+| Run the hardened container                      | `docker run -d --name hardened --user 1000:1000 --read-only --cap-drop=ALL --security-opt no-new-privileges --tmpfs /tmp nginxinc/nginx-unprivileged`                                                      |
+| Verify the hardened container                   | `docker inspect hardened --format 'User={{.Config.User}} ReadOnly={{.HostConfig.ReadonlyRootfs}}'`                                                                                                         |
+| Scan the Nginx image for vulnerabilities        | `docker run --rm aquasec/trivy image --severity HIGH,CRITICAL nginx:alpine`                                                                                                                                |
+| Verify the Kubernetes RoleBinding               | `kubectl get rolebinding dev-rb -n app -o yaml`                                                                                                                                                            |
+| Verify dropped Linux capabilities               | `docker inspect hardened --format '{{json .HostConfig.CapDrop}}'`                                                                
+
+## Challenges Encountered
+
+* The original Nginx configuration used `return 200`, which caused requests without credentials to return HTTP status code `200` instead of `401`. This was solved by creating a static `index.html` page and allowing Nginx to perform the authentication check before displaying the page.
+
+* The `read -p` command provided in the lab manual returned the `read: -p: no coprocess` error because Kali Linux was using Zsh instead of Bash. This was solved by using the Zsh-compatible command `read "CODE?Enter the 6-digit code: "`.
+
+* The first attempt to create the `ccse-lab4` cluster failed during node preparation. Docker also displayed the `Too many open files` error when it was restarted. The inotify limits were temporarily increased, Docker was restarted, and the Kind cluster was then created successfully.
+
+* The network connectivity commands in the lab manual used `apk` and `nc`. However, the standard Nginx image was Debian-based and did not include these commands. The connectivity tests were completed using Bash TCP connections through `/dev/tcp/db/6379`.
+
+* During the first Trivy scan, the vulnerability database needed to be downloaded and updated. After the download completed, the scan successfully reported two high-severity vulnerabilities and no critical vulnerabilities.
+
+## Short-Answer Questions
+
+### Q1. Explain the difference between authentication and authorization using Tasks 1 and 3.
+
+Authentication is used to confirm who the user is, while authorization decides what the user is allowed to do. In Task 1, the user needed the correct username and password to access the Nginx service. In Task 3, Kubernetes RBAC allowed the `dev` service account to list pods but denied permission to create deployments and delete pods.
+
+### Q2. Why is MFA so effective, and which attacks does it defeat?
+
+MFA is effective because it requires more than one authentication factor. Even if an attacker obtains the password, they still need the valid TOTP code. MFA can reduce password guessing, brute-force, credential-stuffing and phishing attacks. However, it may not stop an attacker who has already stolen a valid session token.
+
+### Q3. How does network segmentation limit the damage of a compromised web server?
+
+Network segmentation separates the web, application and database tiers. In this lab, the web container could not directly reach the database because they were connected to different networks. If the web server is compromised, the attacker cannot easily access the database or move to other systems. This helps limit lateral movement and reduces the damage.
+
+### Q4. What does a default-deny firewall policy achieve, and how does it relate to cloud security groups?
+
+A default-deny firewall blocks all traffic unless it is specifically allowed. In this lab, incoming traffic was dropped by default, while TCP port `443` and loopback traffic were allowed. Cloud security groups work in a similar way by allowing only the required ports, protocols and sources.
+
+### Q5. List the hardening measures you applied and the attack surface each one removes.
+
+* **Non-root user:** Reduces the damage if the container is compromised because the process does not have root privileges.
+* **Read-only filesystem:** Prevents attackers from changing system files or saving malicious files.
+* **Drop all capabilities:** Removes unnecessary Linux privileges that may be used for privilege escalation.
+* **No new privileges:** Prevents processes from gaining additional privileges.
+* **Temporary `/tmp` filesystem:** Provides temporary writable storage without making the root filesystem writable.
+* **Trivy scanning:** Identifies known vulnerabilities in the container image before deployment.
+
+
+## Security Best-Practices Checklist
+
+- [x] Service requires authentication and unauthenticated requests are rejected.
+- [x] MFA or a second authentication factor was implemented and validated.
+- [x] Authorization was enforced using RBAC and least-privilege permissions.
+- [x] The network was segmented so the frontend tier could not directly reach the data tier.
+- [x] A default-deny firewall with explicit allow rules was configured.
+- [x] The container was hardened using non-root access, a minimal image, dropped capabilities and a read-only filesystem.
+- [x] The container image was scanned for known vulnerabilities.
+
+## Cleanup and Teardown
+
+After completing all tasks, verification commands and evidence screenshots, the temporary Docker containers, networks and Kubernetes cluster created during the lab were removed.
+
+```bash
+docker rm -f authsvc db app web hardened 2>/dev/null
+docker network rm frontend-net backend-net 2>/dev/null
+kind delete cluster --name ccse-lab4
+```
+
+The cleanup command successfully removed the `db`, `app`, `web` and `hardened` containers. The `authsvc` container had already been removed after it was stopped because it was started using the `--rm` option. The `frontend-net` and `backend-net` networks were also removed, followed by the `ccse-lab4` Kubernetes cluster and its control-plane node.
+
+![Cleanup and Teardown](Evidence/Cleanup-and-Teardown.png)
+
+**Figure 8: Cleanup and Teardown.** The Docker containers, segmented networks and `ccse-lab4` Kubernetes cluster created during the lab were successfully removed.
+
+## Conclusion
+
+In conclusion, this lab demonstrated authentication, authorization, network security and container hardening. Basic Authentication and TOTP protected user access, while Kubernetes RBAC enforced least-privilege permissions. Network segmentation and default-deny firewall rules restricted unnecessary communication. The container was also hardened and scanned using Trivy. Overall, these controls helped reduce security risks in a cloud environment.
+
+## References
+
+* Docker. (n.d.). *Docker Engine security*. https://docs.docker.com/engine/security/
+* Kubernetes. (n.d.). *Using RBAC authorization*. https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+* Aqua Security. (n.d.). *Trivy container image scanning*. https://trivy.dev/docs/latest/guide/target/container_image/
+* UniKL MIIT. (2026). *IKB42603 Lab 4: Access Control and Network Security*.
