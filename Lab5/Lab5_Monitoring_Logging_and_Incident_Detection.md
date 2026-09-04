@@ -406,6 +406,7 @@ docker stop localstack && docker rm localstack
 ```
 
 ![Cleanup and Teardown](Evidence/Cleanup-and-Teardown.png)
+
 *Figure 11: Cleanup and teardown of the temporary Lab 5 files and LocalStack container.*
 
 ## Conclusion
