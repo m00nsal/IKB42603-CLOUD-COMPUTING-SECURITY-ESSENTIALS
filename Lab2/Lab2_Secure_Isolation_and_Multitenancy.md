@@ -394,22 +394,234 @@ Overwriting the file before deletion reduces the possibility of recovering its o
 
 ![Normal deletion and overwrite-before-delete results](Evidence/6-Data-Remanence-and-Secure-Wipe.png)
 
-### Verification Commands
+## Lab 2 Addendum: Zero Trust Micro-Segmentation & Admission Control
 
-The NetworkPolicy can be verified using:
+This addendum extends Lab 2 by implementing additional Zero Trust security controls. Task Z1 applies default-deny egress to control outgoing traffic from `tenant-a`, while Task Z2 uses the Restricted Pod Security Standard to reject unsafe workloads before they can run.
+
+The existing Lab 2 environment uses an Nginx service named `web`. Therefore, the commands were adjusted from `api` to `web`. CPU and memory requests were also added to the probe pods to meet the existing `tenant-a-quota` requirements.
+
+### Task Z1 — Egress Default-Deny
+
+#### Baseline Cross-Tenant Test
+
+Before applying the egress NetworkPolicy, a probe pod was created in `tenant-a` to access the `web` service in `tenant-b`. A temporary ingress exception was used so that the test could measure egress traffic separately from the existing ingress restriction.
+
+The probe pod was configured with CPU and memory requests because the ResourceQuota in `tenant-a` requires these values.
+
+### Evidence
+
+![Cross-tenant probe before the egress policy](Evidence/Z1.1-Cross-Tenant-Probe-Before-Egress-Policy.png)
+
+*Figure Z1.1: Cross-tenant probe execution before applying the egress policy.*
+
+The probe completed successfully, and the output displayed the Nginx welcome page.
+
+![Successful cross-tenant access](Evidence/Z1.2-Cross-Tenant-Access-Successful-Before-Egress-Policy.png)
+
+*Figure Z1.2: Successful cross-tenant access before applying the egress policy.*
+
+The Nginx response confirmed that the probe pod in `tenant-a` could access the `web` service in `tenant-b`. This established the baseline condition before the egress restriction was applied.
+
+#### Egress NetworkPolicy Configuration
+
+Two NetworkPolicies were created in `tenant-a`. The first policy, `default-deny-egress`, blocks all outgoing traffic by default. The second policy, `allow-dns-and-web-only`, allows only the traffic required by the workload.
+
+The allow-list policy permits DNS communication through UDP and TCP port 53. It also permits TCP port 80 only to pods labelled `app: web` within the same namespace.
+
+The policy configuration was saved in `egress-policy.yaml`.
+
+### Evidence
+
+![Egress NetworkPolicy configuration](Evidence/Z1.3-Egress-NetworkPolicy-Configuration.png)
+
+*Figure Z1.3: Configuration of the default-deny egress and explicit allow-list NetworkPolicies.*
+
+The policies were validated using:
+
+```bash
+kubectl apply --dry-run=client -f egress-policy.yaml
+```
+
+After the validation completed without errors, the policies were applied using:
+
+```bash
+kubectl apply -f egress-policy.yaml
+```
+
+The applied NetworkPolicies were then checked using:
+
+```bash
+kubectl -n tenant-a get networkpolicy
+```
+
+The output listed both `default-deny-egress` and `allow-dns-and-web-only`. This confirmed that outgoing traffic was denied by default, while DNS and the required in-namespace web service were explicitly permitted.
+
+### Evidence
+
+![Egress NetworkPolicies applied and verified](Evidence/Z1.4-Egress-NetworkPolicies-Applied-and-Verified.png)
+
+*Figure Z1.4: Egress NetworkPolicies applied and verified in `tenant-a`.*
+
+#### Cross-Tenant Egress Test
+
+After applying the egress policies, another probe pod was created in `tenant-a` to access the `web` service in `tenant-b`.
+
+The request produced:
+
+```text
+wget: download timed out
+BLOCKED
+```
+
+The timeout confirmed that the probe could no longer communicate with the service in `tenant-b`. Therefore, the default-deny egress policy successfully blocked unauthorised cross-tenant traffic.
+
+### Evidence
+
+![Cross-tenant egress blocked](Evidence/Z1.5-Cross-Tenant-Egress-Blocked-After-Policy.png)
+
+*Figure Z1.5: Cross-tenant egress blocked after applying the default-deny egress policy.*
+
+#### Permitted In-Namespace Test
+
+A second test was conducted from the probe pod to the `web` service within `tenant-a`. The Nginx welcome page was successfully returned.
+
+This result confirmed that the policy did not block all outgoing traffic. Communication to the explicitly permitted `web` service within the same namespace remained available.
+
+### Evidence
+
+![Successful in-namespace web access](Evidence/Z1.6-In-Namespace-Web-Access-Successful.png)
+
+*Figure Z1.6: Successful access to the permitted web service within `tenant-a`.*
+
+#### DNS Rule Test
+
+The DNS rule was temporarily removed from the `allow-dns-and-web-only` NetworkPolicy. After the change, the policy only permitted TCP port 80 to pods labelled `app: web`.
+
+### Evidence
+
+![DNS egress rule temporarily removed](Evidence/Z1.7-DNS-Egress-Rule-Temporarily-Removed.png)
+
+*Figure Z1.7: DNS egress rule temporarily removed from the allow-list NetworkPolicy.*
+
+The probe then attempted to access `web.tenant-a.svc.cluster.local`. The test produced:
+
+```text
+wget: bad address 'web.tenant-a.svc.cluster.local'
+DNS_BLOCKED
+```
+
+The `bad address` result showed that the pod could not resolve the service hostname because DNS traffic on port 53 was blocked. Although the policy still permitted TCP port 80 to the web pods, the connection could not begin without DNS name resolution.
+
+### Evidence
+
+![DNS resolution blocked](Evidence/Z1.8-DNS-Resolution-Blocked-Without-DNS-Rule.png)
+
+*Figure Z1.8: DNS name resolution failed after removing the DNS egress rule.*
+
+The original `egress-policy.yaml` file was reapplied after the test. The restored policy permitted UDP port 53, TCP port 53 and TCP port 80.
+
+This confirmed that DNS access was restored while the required web service remained permitted.
+
+### Evidence
+
+![DNS and web egress rules restored](Evidence/Z1.9-DNS-and-Web-Egress-Rules-Restored.png)
+
+*Figure Z1.9: DNS and web egress rules restored in `tenant-a`.*
+
+### Task Z2 — Admission Control Using Pod Security Standards
+
+The Restricted Pod Security Standard was applied to the `tenant-a` namespace using the following command:
+
+```bash
+kubectl label namespace tenant-a \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/warn=restricted \
+  --overwrite
+```
+
+The namespace labels confirmed that `tenant-a` was configured to enforce the latest Restricted Pod Security Standard.
+
+A privileged pod was then created with `securityContext.privileged` set to `true`. When the manifest was applied, the Kubernetes admission controller rejected the pod before it could run.
+
+The rejection message identified five security violations:
+
+* Privileged access was enabled.
+* Privilege escalation was not disabled.
+* Linux capabilities were not dropped.
+* Non-root execution was not enforced.
+* A seccomp profile was not configured.
+
+This demonstrated that Pod Security Standards provide preventative protection because the unsafe workload was blocked during admission.
+
+### Evidence
+
+![Restricted Pod Security and privileged pod rejection](Evidence/Z2.1-Restricted-Pod-Security-and-Privileged-Pod-Rejection.png)
+
+*Figure Z2.1: Restricted Pod Security enforcement and privileged pod rejection in `tenant-a`.*
+
+#### Compliant Pod Deployment
+
+A compliant pod was then configured with the required security controls. It was set to run as a non-root user, use the `RuntimeDefault` seccomp profile, prevent privilege escalation and drop all Linux capabilities.
+
+The compliant pod was applied using:
+
+```bash
+kubectl apply -f compliant-pod.yaml
+```
+
+Its status was checked using:
+
+```bash
+kubectl -n tenant-a get pod compliant-probe
+```
+
+The pod reached the `1/1 Running` state. This confirmed that the Restricted Pod Security Standard did not block all workloads. It only rejected pods that did not meet the required security controls.
+
+### Evidence
+
+![Compliant pod admitted and running](Evidence/Z2.2-Compliant-Pod-Admitted-and-Running.png)
+
+*Figure Z2.2: Compliant pod successfully admitted and running in `tenant-a`.*
+
+#### Most Severe Restricted Violation
+
+In my opinion, privileged container access is the most severe violation in a multi-tenant cluster. A privileged container receives extensive access to the host system and shared kernel. If an attacker compromises it, they may escape the normal container boundary, access node resources, interfere with other workloads and potentially obtain sensitive data belonging to another tenant. This would weaken the isolation provided by Kubernetes namespaces.
+
+## Verification Commands
+
+The original Lab 2 controls were verified using:
 
 ```bash
 kubectl get networkpolicy -A
-```
-
-The ResourceQuota can be verified using:
-
-```bash
 kubectl describe resourcequota tenant-a-quota -n tenant-a
 ```
+
+The Lab 2 Addendum controls were verified using:
+
+```bash
+echo "=== Lab 2 Addendum verification ==="
+
+kubectl -n tenant-a get networkpolicy \
+  -o custom-columns='NAME:.metadata.name,TYPES:.spec.policyTypes'
+
+kubectl get namespace tenant-a \
+  -o jsonpath='{.metadata.labels}' | tr ',' '\n' | grep pod-security
+
+kubectl -n tenant-a get pods
+```
+
+The outputs confirmed that the original NetworkPolicy and ResourceQuota remained active. They also confirmed that the egress policies, Restricted Pod Security labels and compliant pod were available.
+
 ### Evidence
 
 ![Verification of the NetworkPolicy and ResourceQuota](Evidence/7-Security-Control-Verification.png)
+
+*Figure 7: Verification of the original Lab 2 NetworkPolicy and ResourceQuota.*
+
+![Final security control verification](Evidence/Final-Security-Control-Verification.png)
+
+*Figure Z2.3: Final verification of the Lab 2 Addendum security controls.*
 
 ## Evidence
 
@@ -428,6 +640,18 @@ All screenshots used as evidence are stored in the `Evidence` folder.
 | `5-Secret-Isolation-and-RBAC.png` | Secret isolation and RBAC results |
 | `6-Data-Remanence-and-Secure-Wipe.png` | Normal deletion and secure wipe |
 | `7-Security-Control-Verification.png` | Final NetworkPolicy and ResourceQuota verification |
+| `Z1.1-Cross-Tenant-Probe-Before-Egress-Policy.png` | Cross-tenant probe before egress policy |
+| `Z1.2-Cross-Tenant-Access-Successful-Before-Egress-Policy.png` | Successful cross-tenant access before egress policy |
+| `Z1.3-Egress-NetworkPolicy-Configuration.png` | Egress NetworkPolicy configuration |
+| `Z1.4-Egress-NetworkPolicies-Applied-and-Verified.png` | Egress policies applied and verified |
+| `Z1.5-Cross-Tenant-Egress-Blocked-After-Policy.png` | Cross-tenant egress blocked after policy |
+| `Z1.6-In-Namespace-Web-Access-Successful.png` | Successful in-namespace web access |
+| `Z1.7-DNS-Egress-Rule-Temporarily-Removed.png` | DNS egress rule temporarily removed |
+| `Z1.8-DNS-Resolution-Blocked-Without-DNS-Rule.png` | DNS resolution blocked without DNS rule |
+| `Z1.9-DNS-and-Web-Egress-Rules-Restored.png` | DNS and web egress rules restored |
+| `Z2.1-Restricted-Pod-Security-and-Privileged-Pod-Rejection.png` | Restricted Pod Security and privileged pod rejection |
+| `Z2.2-Compliant-Pod-Admitted-and-Running.png` | Compliant pod admitted and running |
+| `Final-Security-Control-Verification.png` | Final Lab 2 Addendum verification |
 
 ## Commands Used
 
@@ -442,12 +666,20 @@ All screenshots used as evidence are stored in the `Evidence` folder.
 | Verify NetworkPolicy | `kubectl get networkpolicy -A` |
 | Test RBAC access | `kubectl auth can-i get secrets -n tenant-a --as=$SA` |
 | Inspect the Docker volume | `docker run --rm -v ccse-vol:/data alpine ls -la /data` |
+| Apply egress policies | `kubectl apply -f egress-policy.yaml` |
+| List egress NetworkPolicies | `kubectl -n tenant-a get networkpolicy` |
+| Enforce Restricted Pod Security | `kubectl label namespace tenant-a pod-security.kubernetes.io/enforce=restricted --overwrite` |
+| Test privileged pod | `kubectl apply -f privileged-pod.yaml` |
+| Deploy compliant pod | `kubectl apply -f compliant-pod.yaml` |
+| Check compliant pod | `kubectl -n tenant-a get pod compliant-probe` |
 
 ## Challenges Encountered
 
 The main challenge occurred during the Calico installation. Some Kubernetes components failed to start because the system reached its open-file and `inotify` limits. The issue was resolved by increasing the `inotify` limits and restarting the kind control-plane container.
 
 Another challenge occurred when the probe pod was rejected after ResourceQuota was applied. The quota required the pod to specify CPU and memory requests. The command was corrected by adding resource requests through the `--overrides` option. After this correction, the connection timed out and confirmed that NetworkPolicy was working.
+
+Another challenge occurred during the addendum because the existing default-deny ingress policy in `tenant-b` would also block the baseline cross-tenant test. A temporary ingress exception was added so that egress behaviour could be tested separately. The exception was removed after the baseline evidence was collected.
 
 ## Short-Answer Questions
 
@@ -478,36 +710,87 @@ Data remanence occurs when information remains on a storage device after a file 
 | Task 5 | Secret isolation | RBAC prevented access to another tenant’s Secret. |
 | Task 6 | Storage security | Normal deletion was compared with overwrite-before-delete. |
 
+### Lab 2 Addendum Short-Answer Questions
+
+#### Q1. Why is default-deny egress important?
+
+An attacker who compromises a pod may try to send stolen data or connect to a command-and-control server. Default-deny egress blocks both activities unless the destination is explicitly allowed.
+
+#### Q2. Why did hostname lookup fail without the DNS rule?
+
+DNS uses UDP or TCP port 53. Without the DNS rule, the pod could not resolve the service hostname into an IP address. This shows that deny-by-default policies must be tested before production to avoid blocking required services.
+
+#### Q3. What is the advantage of preventing a privileged pod?
+
+Pod Security Standards reject the privileged pod before it starts, so it has no opportunity to cause damage. Detection only identifies the pod after it is running, when harmful activity may have already occurred.
+
+#### Q4. Why can a privileged container defeat namespace isolation?
+
+Containers on the same node share the host kernel. A privileged container may access host resources and affect other workloads, weakening the isolation provided by namespaces.
+
+#### Q5. How do Z1 and Z2 demonstrate Zero Trust?
+
+In Z1, the policy verifies the destination and port instead of trusting internal traffic. In Z2, the admission controller verifies the pod’s security settings instead of trusting every submitted workload.
+
 ## Security Best-Practices Checklist
 
-- [x] Tenants are separated into distinct namespaces.
-- [x] A default-deny NetworkPolicy blocks cross-tenant traffic (verified before/after).
-- [x] Resource quotas prevent a noisy-neighbour from exhausting shared capacity.
-- [x] Per-tenant secrets are unreadable by other tenants (RBAC enforced).
-- [x] Secure deletion / cryptographic erasure is understood for data remanence.
+* [x] Tenants are separated into distinct namespaces.
+* [x] A default-deny NetworkPolicy blocks cross-tenant traffic.
+* [x] ResourceQuota prevents a noisy neighbour from exhausting shared resources.
+* [x] Per-tenant secrets are protected using RBAC.
+* [x] Secure deletion and cryptographic erasure are understood.
+* [x] Egress is denied by default, not only ingress.
+* [x] Permitted egress uses an explicit allow-list, including DNS.
+* [x] Cross-tenant traffic was tested and blocked by ingress and egress controls.
+* [x] The namespace enforces the Restricted Pod Security Standard.
+* [x] The privileged workload was rejected before it could run.
+* [x] The compliant workload was successfully deployed.
 
 ## Lessons Learned
 
-This lab showed that namespaces alone do not provide complete tenant isolation because pods in different namespaces can communicate by default. NetworkPolicy is required to control network traffic, while ResourceQuota prevents a tenant from using excessive shared resources.
+This lab showed that namespaces alone do not provide complete tenant isolation. NetworkPolicy is required to control ingress and egress traffic, while ResourceQuota prevents excessive resource usage. I also learned that RBAC protects Secrets and secure deletion reduces data remanence risks.
 
-I also learned that RBAC can restrict access to sensitive resources such as Secrets. The storage test demonstrated that normal deletion may leave recoverable data, while overwriting data before deletion can make recovery more difficult. In cloud storage, cryptographic erasure is generally more practical.
+The addendum showed that DNS must be explicitly allowed when egress is denied by default. Pod Security Standards can also prevent privileged workloads from running while still allowing compliant pods.
 
 ## Cleanup
 
 ```bash
+kubectl delete -f egress-policy.yaml --ignore-not-found
+kubectl delete pod compliant-probe -n tenant-a --ignore-not-found
+
+kubectl label namespace tenant-a \
+  pod-security.kubernetes.io/enforce- \
+  pod-security.kubernetes.io/enforce-version- \
+  pod-security.kubernetes.io/warn- 2>/dev/null
+
+rm -f egress-policy.yaml privileged-pod.yaml compliant-pod.yaml
+
 kind delete cluster --name ccse-lab2
 docker volume rm ccse-vol
 ```
 
 ## Conclusion
 
-This lab demonstrated that secure multi-tenancy requires several security controls. Kubernetes namespaces provided logical separation, but they did not automatically block network communication. ResourceQuota controlled shared resource usage, NetworkPolicy enforced network isolation and RBAC protected sensitive information. The storage test also showed why secure deletion is important when handling data in cloud environments.
+This lab demonstrated secure multi-tenancy using namespaces, ResourceQuota, NetworkPolicy and RBAC. The addendum strengthened the setup by blocking unauthorised egress traffic and enforcing the Restricted Pod Security Standard. The results showed that Zero Trust requires both network restrictions and workload verification.
 
 ## References
 
 1. UniKL MIIT. *IKB42603 Cloud Computing Security Essentials: Lab 2 Manual*.
-2. Kubernetes Documentation. [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/).
-3. Kubernetes Documentation. [Resource Quotas](https://kubernetes.io/docs/concepts/policy/resource-quotas/).
-4. Kubernetes Documentation. [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/).
-5. Kubernetes Documentation. [Using RBAC Authorization](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
-6. Calico Documentation. [Getting Started with Calico](https://docs.tigera.io/calico/latest/getting-started/).
+
+2. UniKL MIIT. *Lab 2 Addendum: Zero Trust Micro-Segmentation and Admission Control*.
+
+3. Kubernetes Documentation. [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/).
+
+4. Kubernetes Documentation. [Resource Quotas](https://kubernetes.io/docs/concepts/policy/resource-quotas/).
+
+5. Kubernetes Documentation. [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/).
+
+6. Kubernetes Documentation. [Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/).
+
+7. Kubernetes Documentation. [Using RBAC Authorization](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
+
+8. National Institute of Standards and Technology. (2020). [Zero Trust Architecture (NIST SP 800-207)](https://doi.org/10.6028/NIST.SP.800-207).
+
+9. Cloud Security Alliance. (2024). [Security Guidance v5](https://cloudsecurityalliance.org/artifacts/security-guidance-v5).
+
+10. Calico Documentation. [Getting Started with Calico](https://docs.tigera.io/calico/latest/getting-started/).
