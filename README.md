@@ -8,13 +8,14 @@
 
 ## Repository Structure
 
-```
+```text
 Lab0/
 Lab1/
 Lab2/
 Lab3/
 Lab4/
 Lab5/
+Lab6/
 ```
 
 ---
@@ -27,3 +28,31 @@ Lab5/
 - 📁 [Lab 3 – Encryption and Key Management](Lab3/Lab3_Encryption_and_Key_Management.md)
 - 📁 [Lab 4 – Access Control and Network Security](Lab4/Lab4_Access_Control_and_Network_Security.md)
 - 📁 [Lab 5 – Monitoring, Logging and Incident Detection](Lab5/Lab5_Monitoring_Logging_and_Incident_Detection.md)
+- 📁 [Lab 6 – Object Storage Security and Data Security Lifecycle](Lab6/Lab6_Object_Storage_Security_and_Data_Security_Lifecycle.md)
+
+---
+
+## Tools and Technologies
+
+- Kali Linux
+- Docker
+- LocalStack
+- AWS CLI
+- Amazon S3
+- AWS KMS
+- Kubernetes
+- kind
+- kubectl
+- Calico
+- OpenSSL
+- CloudWatch Logs
+- iptables
+- curl
+
+---
+
+## Description
+
+This repository contains practical lab reports for the IKB42603 Cloud Computing Security Essentials course. The labs cover cloud security topics such as IAM, secure isolation, encryption, access control, monitoring, object storage security, and data lifecycle management.
+
+Each lab folder contains a Markdown report and an `Evidence` folder with screenshots of the commands and results.
